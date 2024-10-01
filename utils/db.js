@@ -1,56 +1,66 @@
-// utils/db.js
+import mongodb from 'mongodb';
+// eslint-disable-next-line no-unused-vars
+import Collection from 'mongodb/lib/collection';
+import envLoader from './env_loader';
 
-const { MongoClient } = require('mongodb');
-
-const { env } = process;
-
-// DBClient Class Definition
+/**
+ * Represents a MongoDB client.
+ */
 class DBClient {
+  /**
+   * Creates a new DBClient instance.
+   */
   constructor() {
-    const host = env.DB_HOST || 'localhost';
-    const port = env.DB_PORT || 27017;
-    const database = env.DB_DATABASE || 'files_manager';
-    const url = `mongodb://${host}:${port}`;
+    envLoader();
+    const host = process.env.DB_HOST || 'localhost';
+    const port = process.env.DB_PORT || 27017;
+    const database = process.env.DB_DATABASE || 'files_manager';
+    const dbURL = `mongodb://${host}:${port}/${database}`;
 
-    this.client = new MongoClient(url, { useNewUrlParser: true, useUnifiedTopology: true });
-    this.client.connect()
-      .then(() => {
-        this.db = this.client.db(database);
-        console.log(`Connected to MongoDB at ${url}`);
-      })
-      .catch((err) => {
-        console.error('Failed to connect to MongoDB:', err);
-      });
+    this.client = new mongodb.MongoClient(dbURL, { useUnifiedTopology: true });
+    this.client.connect();
   }
 
-  // Check if MongoDB connection is alive
+  /**
+   * Checks if this client's connection to the MongoDB server is active.
+   * @returns {boolean}
+   */
   isAlive() {
     return this.client.isConnected();
   }
 
-  // Get the number of users in the "users" collection
+  /**
+   * Retrieves the number of users in the database.
+   * @returns {Promise<Number>}
+   */
   async nbUsers() {
-    try {
-      const usersCollection = this.db.collection('users');
-      return await usersCollection.countDocuments();
-    } catch (err) {
-      console.error('Error getting number of users:', err);
-      return 0;
-    }
+    return this.client.db().collection('users').countDocuments();
   }
 
-  // Get the number of files in the "files" collection
+  /**
+   * Retrieves the number of files in the database.
+   * @returns {Promise<Number>}
+   */
   async nbFiles() {
-    try {
-      const filesCollection = this.db.collection('files');
-      return await filesCollection.countDocuments();
-    } catch (err) {
-      console.error('Error getting number of files:', err);
-      return 0;
-    }
+    return this.client.db().collection('files').countDocuments();
+  }
+
+  /**
+   * Retrieves a reference to the `users` collection.
+   * @returns {Promise<Collection>}
+   */
+  async usersCollection() {
+    return this.client.db().collection('users');
+  }
+
+  /**
+   * Retrieves a reference to the `files` collection.
+   * @returns {Promise<Collection>}
+   */
+  async filesCollection() {
+    return this.client.db().collection('files');
   }
 }
 
-// Exporting an instance of DBClient
-const dbClient = new DBClient();
-module.exports = dbClient;
+export const dbClient = new DBClient();
+export default dbClient;

@@ -1,99 +1,63 @@
-// utils/redis.js
-
-const redis = require('redis');
-const { promisify } = require('util');
+import { promisify } from 'util';
+import { createClient } from 'redis';
 
 /**
- * RedisClient class to handle Redis operations.
+ * Represents a Redis client.
  */
 class RedisClient {
   /**
-   * Constructs a new RedisClient instance.
+   * Creates a new RedisClient instance.
    */
   constructor() {
-    const host = process.env.DB_HOST || 'localhost';
-    const port = process.env.DB_PORT || 6379;
-    const database = process.env.DB_DATABASE || 0; // Redis uses database indices
-
-    this.client = redis.createClient({
-      host,
-      port,
-      db: database,
-    });
-
-    // Handle Redis client errors
+    this.client = createClient();
+    this.isClientConnected = true;
     this.client.on('error', (err) => {
-      console.error('Redis Client Error:', err);
+      console.error('Redis client failed to connect:', err.message || err.toString());
+      this.isClientConnected = false;
     });
-
-    // Promisify Redis methods for async/await usage
-    this.getAsync = promisify(this.client.get).bind(this.client);
-    this.setAsync = promisify(this.client.set).bind(this.client);
-    this.delAsync = promisify(this.client.del).bind(this.client);
-    this.existsAsync = promisify(this.client.exists).bind(this.client);
+    this.client.on('connect', () => {
+      this.isClientConnected = true;
+    });
   }
 
   /**
-   * Checks if the Redis client is connected.
-   *
-   * @returns {boolean} True if connected, false otherwise.
+   * Checks if this client's connection to the Redis server is active.
+   * @returns {boolean}
    */
   isAlive() {
-    return this.client.connected;
+    return this.isClientConnected;
   }
 
   /**
-   * Retrieves the value associated with the given key from Redis.
-   *
-   * @param {string} key - The key to retrieve.
-   * @returns {Promise<string|null>} The value stored for the key, or null if not found.
+   * Retrieves the value of a given key.
+   * @param {String} key The key of the item to retrieve.
+   * @returns {String | Object}
    */
   async get(key) {
-    try {
-      const value = await this.getAsync(key);
-      return value;
-    } catch (err) {
-      console.error(`Error getting key "${key}":`, err);
-      return null;
-    }
+    return promisify(this.client.GET).bind(this.client)(key);
   }
 
   /**
-   * Sets a key-value pair in Redis with an expiration time.
-   *
-   * @param {string} key - The key to set.
-   * @param {string} value - The value to associate with the key.
-   * @param {number} duration - Expiration time in seconds.
-   * @returns {Promise<boolean>} True if the operation was successful, false otherwise.
+   * Stores a key and its value along with an expiration time.
+   * @param {String} key The key of the item to store.
+   * @param {String | Number | Boolean} value The item to store.
+   * @param {Number} duration The expiration time of the item in seconds.
+   * @returns {Promise<void>}
    */
   async set(key, value, duration) {
-    try {
-      // The 'EX' option sets the expiration time in seconds
-      await this.setAsync(key, value, 'EX', duration);
-      return true;
-    } catch (err) {
-      console.error(`Error setting key "${key}":`, err);
-      return false;
-    }
+    await promisify(this.client.SETEX)
+      .bind(this.client)(key, duration, value);
   }
 
   /**
-   * Deletes the key-value pair associated with the given key from Redis.
-   *
-   * @param {string} key - The key to delete.
-   * @returns {Promise<boolean>} True if the key was deleted, false otherwise.
+   * Removes the value of a given key.
+   * @param {String} key The key of the item to remove.
+   * @returns {Promise<void>}
    */
   async del(key) {
-    try {
-      const result = await this.delAsync(key);
-      return result > 0;
-    } catch (err) {
-      console.error(`Error deleting key "${key}":`, err);
-      return false;
-    }
+    await promisify(this.client.DEL).bind(this.client)(key);
   }
 }
 
-// Exporting an instance of RedisClient
-const redisClient = new RedisClient();
-module.exports = redisClient;
+export const redisClient = new RedisClient();
+export default redisClient;

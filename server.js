@@ -1,19 +1,12 @@
-// server.js
+import express from 'express';
+import startServer from './libs/boot';
+import injectRoutes from './routes';
+import injectMiddlewares from './libs/middlewares';
 
-const express = require('express');
-const routes = require('./routes');
+const server = express();
 
-const app = express();
+injectMiddlewares(server);
+injectRoutes(server);
+startServer(server);
 
-const PORT = process.env.PORT || 5000;
-
-// Middleware to parse JSON
-app.use(express.json());
-
-// Load all routes
-app.use('/', routes);
-
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+export default server;
